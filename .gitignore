@@ -1,0 +1,117 @@
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+env.bak/
+venv.bak/
+*.env
+
+# Build outputs
+dist/
+build/
+coverage/
+*.min.js
+*.min.css
+
+# Vite specific
+.client/
+.server/
+.vite/
+.temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.lerna-debug.log*
+
+# OS generated files
+ehthumbs.db
+Icon?
+desktop.ini
+
+# Environment variables
+.env
+.env.local
+.env.dev
+.env.test
+.env.production
+
+# Testing
+coverage/
+.nyc_output/
+coverage-final.json
+
+# Database
+*.db
+*.db-journal
+
+# Local storage
+.localStorage/
+
+# Process pid
+*.pid
+
+# Compiled binary
+*.exe
+*.dll
+*.dylib
+
+# Browser extension temp files
+browser-extension/build/
+browser-extension/dist/
+
+# Reports
+reports/
+*.report/
+
+# Manus logs
+.frontend/client/.manus-logs/
+.manus-logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker
+.docker/
+
+# Backend services specific
+backend/case-service/__pycache__/
+backend/report-service/__pycache__/
+backend/ai-service/__pycache__/
+backend/explorer-service/__pycache__/
+
+# Frontend specific
+frontend/ai-test-frontend/dist/
+frontend/ai-test-frontend/client/.vite/
+frontend/ai-test-frontend/client/. histoire/
+frontend/ai-test-frontend/node_modules/
+frontend/ai-test-frontend/client/node_modules/
+
+
+*.bat
+*.ps1

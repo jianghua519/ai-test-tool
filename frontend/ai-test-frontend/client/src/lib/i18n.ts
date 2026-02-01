@@ -1,0 +1,298 @@
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+
+const resources = {
+  en: {
+    translation: {
+      common: {
+        dashboard: 'Dashboard',
+        testCases: 'Test Cases',
+        testRuns: 'Test Runs',
+        autoExplore: 'Auto Explore',
+        settings: 'Settings',
+        loading: 'Loading...',
+        error: 'Error',
+        success: 'Success',
+        save: 'Save',
+        cancel: 'Cancel',
+        delete: 'Delete',
+        edit: 'Edit',
+        run: 'Run',
+        create: 'Create',
+        search: 'Search',
+        status: 'Status',
+        actions: 'Actions',
+        language: 'Language',
+        theme: 'Theme',
+        light: 'Light',
+        dark: 'Dark',
+        system: 'System',
+        explore: 'Explore',
+        generating: 'Generating...',
+        analyzing: 'Analyzing...',
+        start: 'Start',
+        stop: 'Stop'
+      },
+      dashboard: {
+        totalCases: 'Total Cases',
+        totalRuns: 'Total Runs',
+        passRate: 'Pass Rate',
+        recentRuns: 'Recent Runs',
+        aiInsights: 'AI Insights',
+        systemStatus: 'System Status'
+      },
+      cases: {
+        createTitle: 'Create Test Case',
+        editTitle: 'Edit Test Case',
+        name: 'Name',
+        description: 'Description',
+        steps: 'Steps',
+        assertions: 'Assertions',
+        variables: 'Variables',
+        noCases: 'No test cases found',
+        recordNew: 'Record New Case',
+        generateAI: 'Generate with AI'
+      },
+      runs: {
+        id: 'Run ID',
+        caseName: 'Case Name',
+        startTime: 'Start Time',
+        duration: 'Duration',
+        result: 'Result',
+        passed: 'Passed',
+        failed: 'Failed',
+        running: 'Running',
+        pending: 'Pending'
+      },
+      explore: {
+        title: 'Auto Explore & Generate Test Cases',
+        url: 'Target URL',
+        urlPlaceholder: 'Enter the website URL to explore (e.g., https://example.com)',
+        description: 'Business Description',
+        descriptionPlaceholder: 'Describe the business functionality you want to test...\n\nExample:\nI want to test a login page with the following features:\n- Users can login with username and password\n- There is a forgot password link\n- After login, users see their dashboard',
+        startExplore: 'Start Exploration',
+        stopExplore: 'Stop Exploration',
+        exploringStatus: 'Exploring...',
+        exploreProgress: 'Exploration Progress',
+        pagesExplored: 'Pages Explored',
+        elementsFound: 'Elements Found',
+        casesGenerated: 'Cases Generated',
+        maxDepth: 'Max Depth',
+        maxPages: 'Max Pages',
+        exploreSettings: 'Exploration Settings',
+        generateCases: 'Generate Test Cases',
+        analyzingDescription: 'Analyzing business description...',
+        generatingStrategy: 'Generating exploration strategy...',
+        strategyTitle: 'Exploration Strategy',
+        keyFeatures: 'Key Features Identified',
+        testTargets: 'Test Targets',
+        priorityAreas: 'Priority Areas',
+        analysisComplete: 'Analysis Complete',
+        noAnalysis: 'No analysis available',
+        elementSelector: 'Element Selector',
+        noDescription: 'Please enter a business description',
+        invalidUrl: 'Please enter a valid URL'
+      }
+    }
+  },
+  zh: {
+    translation: {
+      common: {
+        dashboard: '仪表盘',
+        testCases: '测试用例',
+        testRuns: '测试运行',
+        autoExplore: '自动探索',
+        settings: '设置',
+        loading: '加载中...',
+        error: '错误',
+        success: '成功',
+        save: '保存',
+        cancel: '取消',
+        delete: '删除',
+        edit: '编辑',
+        run: '运行',
+        create: '创建',
+        search: '搜索',
+        status: '状态',
+        actions: '操作',
+        language: '语言',
+        theme: '主题',
+        light: '浅色',
+        dark: '深色',
+        system: '跟随系统',
+        explore: '探索',
+        generating: '生成中...',
+        analyzing: '分析中...',
+        start: '开始',
+        stop: '停止'
+      },
+      dashboard: {
+        totalCases: '用例总数',
+        totalRuns: '运行总数',
+        passRate: '通过率',
+        recentRuns: '最近运行',
+        aiInsights: 'AI 洞察',
+        systemStatus: '系统状态'
+      },
+      cases: {
+        createTitle: '创建测试用例',
+        editTitle: '编辑测试用例',
+        name: '名称',
+        description: '描述',
+        steps: '步骤',
+        assertions: '断言',
+        variables: '变量',
+        noCases: '暂无测试用例',
+        recordNew: '录制新用例',
+        generateAI: 'AI 生成'
+      },
+      runs: {
+        id: '运行ID',
+        caseName: '用例名称',
+        startTime: '开始时间',
+        duration: '耗时',
+        result: '结果',
+        passed: '通过',
+        failed: '失败',
+        running: '运行中',
+        pending: '等待中'
+      },
+      explore: {
+        title: '自动探索并生成测试用例',
+        url: '目标网址',
+        urlPlaceholder: '输入要探索的网站URL（例如：https://example.com）',
+        description: '业务说明',
+        descriptionPlaceholder: '描述您想要测试的业务功能...\n\n示例：\n我想测试一个登录页面，包含以下功能：\n- 用户可以使用用户名和密码登录\n- 有忘记密码链接\n- 登录后用户看到仪表盘',
+        startExplore: '开始探索',
+        stopExplore: '停止探索',
+        exploringStatus: '探索中...',
+        exploreProgress: '探索进度',
+        pagesExplored: '已探索页面',
+        elementsFound: '已发现元素',
+        casesGenerated: '已生成用例',
+        maxDepth: '最大深度',
+        maxPages: '最大页面数',
+        exploreSettings: '探索设置',
+        generateCases: '生成测试用例',
+        analyzingDescription: '正在分析业务说明...',
+        generatingStrategy: '正在生成探索策略...',
+        strategyTitle: '探索策略',
+        keyFeatures: '识别的关键功能',
+        testTargets: '测试目标',
+        priorityAreas: '优先级区域',
+        analysisComplete: '分析完成',
+        noAnalysis: '暂无分析结果',
+        elementSelector: '元素选择器',
+        noDescription: '请输入业务说明',
+        invalidUrl: '请输入有效的URL'
+      }
+    }
+  },
+  ja: {
+    translation: {
+      common: {
+        dashboard: 'ダッシュボード',
+        testCases: 'テストケース',
+        testRuns: 'テスト実行',
+        autoExplore: '自動探索',
+        settings: '設定',
+        loading: '読み込み中...',
+        error: 'エラー',
+        success: '成功',
+        save: '保存',
+        cancel: 'キャンセル',
+        delete: '削除',
+        edit: '編集',
+        run: '実行',
+        create: '作成',
+        search: '検索',
+        status: 'ステータス',
+        actions: '操作',
+        language: '言語',
+        theme: 'テーマ',
+        light: 'ライト',
+        dark: 'ダーク',
+        system: 'システム',
+        explore: '探索',
+        generating: '生成中...',
+        analyzing: '分析中...',
+        start: '開始',
+        stop: '停止'
+      },
+      dashboard: {
+        totalCases: '総ケース数',
+        totalRuns: '総実行数',
+        passRate: '合格率',
+        recentRuns: '最近の実行',
+        aiInsights: 'AIインサイト',
+        systemStatus: 'システム状態'
+      },
+      cases: {
+        createTitle: 'テストケース作成',
+        editTitle: 'テストケース編集',
+        name: '名前',
+        description: '説明',
+        steps: 'ステップ',
+        assertions: 'アサーション',
+        variables: '変数',
+        noCases: 'テストケースが見つかりません',
+        recordNew: '新規記録',
+        generateAI: 'AI生成'
+      },
+      runs: {
+        id: '実行ID',
+        caseName: 'ケース名',
+        startTime: '開始時間',
+        duration: '所要時間',
+        result: '結果',
+        passed: '合格',
+        failed: '失敗',
+        running: '実行中',
+        pending: '待機中'
+      },
+      explore: {
+        title: '自動探索とテストケース生成',
+        url: 'ターゲットURL',
+        urlPlaceholder: '探索するWebサイトのURLを入力（例：https://example.com）',
+        description: '業務説明',
+        descriptionPlaceholder: 'テストしたい業務機能を説明してください...\n\n例：\n次の機能を備えたログインページをテストしたいです：\n- ユーザーはユーザー名とパスワードでログインできる\n- パスワード忘れリンクがある\n- ログイン後にダッシュボードが表示される',
+        startExplore: '探索開始',
+        stopExplore: '探索停止',
+        exploringStatus: '探索中...',
+        exploreProgress: '探索進捗',
+        pagesExplored: '探索済みページ',
+        elementsFound: '発見された要素',
+        casesGenerated: '生成されたケース',
+        maxDepth: '最大深度',
+        maxPages: '最大ページ数',
+        exploreSettings: '探索設定',
+        generateCases: 'テストケース生成',
+        analyzingDescription: '業務説明を分析中...',
+        generatingStrategy: '探索戦略を生成中...',
+        strategyTitle: '探索戦略',
+        keyFeatures: '識別された主要機能',
+        testTargets: 'テスト対象',
+        priorityAreas: '優先エリア',
+        analysisComplete: '分析完了',
+        noAnalysis: '分析結果なし',
+        elementSelector: '要素セレクター',
+        noDescription: '業務説明を入力してください',
+        invalidUrl: '有効なURLを入力してください'
+      }
+    }
+  }
+};
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources,
+    fallbackLng: 'en',
+    interpolation: {
+      escapeValue: false
+    }
+  });
+
+export default i18n;

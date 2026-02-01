@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-test-postgres
+    environment:
+      POSTGRES_DB: ai_test_tool
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: ai-test-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API网关
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: ai-test-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - CASE_SERVICE_URL=http://case-service:8001
+      - EXEC_SERVICE_URL=http://exec-service:3001
+      - REPORT_SERVICE_URL=http://report-service:8002
+      - AI_SERVICE_URL=http://ai-service:8003
+    depends_on:
+      - postgres
+      - minio
+
+  # 用例管理服务
+  case-service:
+    build: ./backend/case-service
+    container_name: ai-test-case-service
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass123@postgres:5432/ai_test_tool
+      - AI_SERVICE_URL=http://ai-service:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 测试执行服务
+  exec-service:
+    build: ./backend/exec-service
+    container_name: ai-test-exec-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://testuser:testpass123@postgres:5432/ai_test_tool
+      - CASE_SERVICE_URL=http://case-service:8001
+      - REPORT_SERVICE_URL=http://report-service:8002
+      - AI_SERVICE_URL=http://ai-service:8003
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # 需要安装Playwright浏览器
+    volumes:
+      - playwright_cache:/root/.cache/ms-playwright
+
+  # 报告与证据服务
+  report-service:
+    build: ./backend/report-service
+    container_name: ai-test-report-service
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass123@postgres:5432/ai_test_tool
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_BUCKET=test-evidence
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  # AI能力服务
+  ai-service:
+    build: ./backend/ai-service
+    container_name: ai-test-ai-service
+    ports:
+      - "8003:8003"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
+  # 探索服务
+  explorer-service:
+    build: ./backend/explorer-service
+    container_name: ai-test-explorer-service
+    ports:
+      - "8004:8004"
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass123@postgres:5432/ai_test_tool
+      - AI_SERVICE_URL=http://ai-service:8003
+      - CASE_SERVICE_URL=http://case-service:8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+
+  # Web管理平台
+  frontend:
+    build: ./frontend
+    container_name: ai-test-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - api-gateway
+
+volumes:
+  postgres_data:
+  minio_data:
+  playwright_cache:

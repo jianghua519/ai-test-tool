@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+      font-size: 18px;
+    }
+    .status {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: #e9ecef;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 10px;
+      background-color: #ccc;
+    }
+    .status.recording .status-indicator {
+      background-color: #dc3545;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      transition: background-color 0.2s;
+    }
+    #startBtn {
+      background-color: #0d6efd;
+      color: white;
+    }
+    #startBtn:hover {
+      background-color: #0b5ed7;
+    }
+    #stopBtn {
+      background-color: #dc3545;
+      color: white;
+      display: none;
+    }
+    #stopBtn:hover {
+      background-color: #bb2d3b;
+    }
+    .settings {
+      margin-top: 15px;
+      border-top: 1px solid #dee2e6;
+      padding-top: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: #666;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 5px;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <h2>AI Test Recorder</h2>
+  
+  <div class="status" id="statusBox">
+    <div class="status-indicator" id="statusIndicator"></div>
+    <span id="statusText">Ready to record</span>
+  </div>
+
+  <button id="startBtn">Start Recording</button>
+  <button id="stopBtn">Stop Recording</button>
+
+  <div class="settings">
+    <label for="serverUrl">Server URL:</label>
+    <input type="text" id="serverUrl" value="http://localhost:3000">
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

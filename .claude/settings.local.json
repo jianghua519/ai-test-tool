@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(dir:*)",
+      "Bash(docker-compose:*)",
+      "Bash(pip install:*)",
+      "Bash(start python:*)",
+      "Bash(npm install:*)",
+      "Bash(start node src/index.js)",
+      "Bash(pnpm install:*)",
+      "Bash(start pnpm dev)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(python:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(taskkill:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm --stop:*)",
+      "Bash(start-all.bat)",
+      "Bash(cmd:*)",
+      "Bash(tasklist:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(timeout:*)",
+      "Bash(powershell:*)"
+    ]
+  }
+}
