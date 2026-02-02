@@ -10,8 +10,11 @@ from models import Base, TestCase, TestSuite, TestData, RecordingSession
 import json
 
 # 数据库配置
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://testuser:testpass123@localhost:5432/ai_test_tool')
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./test_cases.db')
+if DATABASE_URL.startswith('postgresql://'):
+    # 如果配置的是PostgreSQL，转换为SQLite
+    DATABASE_URL = 'sqlite:///./test_cases.db'
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith('sqlite://') else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # 创建表
@@ -77,9 +80,9 @@ async def list_cases(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             "id": case.id,
             "name": case.name,
             "description": case.description,
-            "steps": case.steps,
-            "assertions": case.assertions,
-            "variables": case.variables,
+            "steps": json.loads(case.steps) if case.steps else [],
+            "assertions": json.loads(case.assertions) if case.assertions and case.assertions != "null" else None,
+            "variables": json.loads(case.variables) if case.variables and case.variables != "{}" else None,
             "created_at": case.created_at.isoformat() if case.created_at else None,
             "updated_at": case.updated_at.isoformat() if case.updated_at else None
         }
@@ -107,9 +110,9 @@ async def create_case(case: TestCaseCreate, db: Session = Depends(get_db)):
     db_case = TestCase(
         name=case.name,
         description=case.description,
-        steps=case.steps,
-        assertions=case.assertions,
-        variables=case.variables
+        steps=json.dumps(case.steps) if case.steps else "[]",
+        assertions=json.dumps(case.assertions) if case.assertions else "null",
+        variables=json.dumps(case.variables) if case.variables else "{}"
     )
     db.add(db_case)
     db.commit()
@@ -127,11 +130,11 @@ async def update_case(case_id: int, case: TestCaseUpdate, db: Session = Depends(
     if case.description is not None:
         db_case.description = case.description
     if case.steps is not None:
-        db_case.steps = case.steps
+        db_case.steps = json.dumps(case.steps) if isinstance(case.steps, (dict, list)) else case.steps
     if case.assertions is not None:
-        db_case.assertions = case.assertions
+        db_case.assertions = json.dumps(case.assertions) if case.assertions else "null"
     if case.variables is not None:
-        db_case.variables = case.variables
+        db_case.variables = json.dumps(case.variables) if case.variables else "{}"
     
     db.commit()
     return {"message": "Test case updated successfully"}
@@ -152,7 +155,7 @@ async def create_recording(recording: RecordingCreate, db: Session = Depends(get
     db_recording = RecordingSession(
         session_id=recording.session_id,
         url=recording.url,
-        actions=recording.actions,
+        actions=json.dumps(recording.actions),
         status='recording'
     )
     db.add(db_recording)
@@ -166,7 +169,7 @@ async def update_recording(session_id: str, recording: RecordingUpdate, db: Sess
     if not db_recording:
         raise HTTPException(status_code=404, detail="Recording session not found")
     
-    db_recording.actions = recording.actions
+    db_recording.actions = json.dumps(recording.actions)
     if recording.status:
         db_recording.status = recording.status
     
@@ -183,7 +186,7 @@ async def get_recording(session_id: str, db: Session = Depends(get_db)):
         "id": recording.id,
         "session_id": recording.session_id,
         "url": recording.url,
-        "actions": recording.actions,
+        "actions": json.loads(recording.actions) if recording.actions else [],
         "status": recording.status,
         "created_at": recording.created_at.isoformat() if recording.created_at else None
     }

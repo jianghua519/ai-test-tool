@@ -12,8 +12,10 @@ import {
   Eye,
   EyeOff,
   Bot,
-  ArrowLeft
+  ArrowLeft,
+  Move
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +37,8 @@ import {
 } from '@/components/ui/dialog';
 import DashboardLayout from '@/components/DashboardLayout';
 import SelectorValidator from '@/components/SelectorValidator';
+import AssertionBuilder from '@/components/AssertionBuilder';
+import VariableManager from '@/components/VariableManager';
 
 interface TestStep {
   id: string;
@@ -92,15 +96,14 @@ export default function TestCaseEditor() {
     assertions: [],
     variables: {},
   });
+  const [draggedItem, setDraggedItem] = useState<{
+    id: string;
+    index: number;
+    content: React.ReactNode;
+  } | null>(null);
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [draggedStep, setDraggedStep] = useState<string | null>(null);
-  const [showAssertionDialog, setShowAssertionDialog] = useState(false);
-  const [newAssertion, setNewAssertion] = useState<Assertion>({
-    id: '',
-    type: 'urlContains',
-    value: '',
-    description: '',
-  });
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -234,84 +237,53 @@ export default function TestCaseEditor() {
     setExpandedSteps(newExpanded);
   };
 
-  const handleDragStart = (stepId: string) => {
+  const handleDragStart = (stepId: string, index: number) => {
     setDraggedStep(stepId);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetStepId: string) => {
-    e.preventDefault();
-    if (!draggedStep || draggedStep === targetStepId) return;
-
-    const steps = [...testCase.steps];
-    const draggedIndex = steps.findIndex((s) => s.id === draggedStep);
-    const targetIndex = steps.findIndex((s) => s.id === targetStepId);
-
-    const [removed] = steps.splice(draggedIndex, 1);
-    steps.splice(targetIndex, 0, removed);
-
-    setTestCase({ ...testCase, steps });
+    setDragIndex(index);
+    // Store the dragged item for preview
+    const step = testCase.steps.find(s => s.id === stepId);
+    if (step) {
+      setDraggedItem({
+        id: stepId,
+        index,
+        content: (
+          <div className="flex items-center p-3 bg-white border rounded-lg shadow-lg">
+            <div className="flex items-center justify-center w-6 h-6 mr-2 text-muted-foreground">
+              <Move className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-medium">Step {index + 1}</span>
+            <Badge variant="outline" className="ml-2">{step.action}</Badge>
+          </div>
+        ),
+      });
+    }
   };
 
   const handleDragEnd = () => {
     setDraggedStep(null);
+    setDragIndex(null);
+    setDraggedItem(null);
   };
 
-  const addAssertion = () => {
-    if (!newAssertion.value) return;
-    
-    const assertion: Assertion = {
-      id: `assertion-${Date.now()}`,
-      type: newAssertion.type,
-      value: newAssertion.value,
-      description: newAssertion.description || `${newAssertion.type}: ${newAssertion.value}`,
-    };
-    
+  const moveStep = (fromIndex: number, toIndex: number) => {
+    const newSteps = [...testCase.steps];
+    const [movedStep] = newSteps.splice(fromIndex, 1);
+    newSteps.splice(toIndex, 0, movedStep);
+    setTestCase({ ...testCase, steps: newSteps });
+  };
+
+  const handleAssertionsChange = (newAssertions: Assertion[]) => {
     setTestCase({
       ...testCase,
-      assertions: [...testCase.assertions, assertion],
+      assertions: newAssertions,
     });
-    
-    setNewAssertion({
-      id: '',
-      type: 'urlContains',
-      value: '',
-      description: '',
-    });
-    
-    setShowAssertionDialog(false);
   };
 
-  const deleteAssertion = (assertionId: string) => {
+  const handleVariablesChange = (newVariables: Record<string, string>) => {
     setTestCase({
       ...testCase,
-      assertions: testCase.assertions.filter((a) => a.id !== assertionId),
+      variables: newVariables,
     });
-  };
-
-  const addVariable = () => {
-    const key = prompt('Variable name:');
-    if (!key) return;
-    
-    const value = prompt('Variable value:');
-    if (value === null) return;
-    
-    setTestCase({
-      ...testCase,
-      variables: { ...testCase.variables, [key]: value },
-    });
-  };
-
-  const updateVariable = (key: string, value: string) => {
-    setTestCase({
-      ...testCase,
-      variables: { ...testCase.variables, [key]: value },
-    });
-  };
-
-  const deleteVariable = (key: string) => {
-    const newVariables = { ...testCase.variables };
-    delete newVariables[key];
-    setTestCase({ ...testCase, variables: newVariables });
   };
 
   if (loading) {
@@ -326,6 +298,20 @@ export default function TestCaseEditor() {
 
   return (
     <DashboardLayout>
+      {/* Drag Preview Overlay */}
+      <AnimatePresence>
+        {draggedItem && (
+          <motion.div
+            className="fixed top-4 right-4 z-50"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+          >
+            {draggedItem.content}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -345,22 +331,12 @@ export default function TestCaseEditor() {
               <Save className="mr-2 h-4 w-4" />
               {saving ? t('common.saving') : t('common.save')}
             </Button>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('cases.basicInfo')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">{t('cases.name')}</label>
-              <Input
-                value={testCase.name}
-                onChange={(e) => setTestCase({ ...testCase, name: e.target.value })}
-                placeholder={t('cases.namePlaceholder')}
-              />
-            </div>
+                      </motion.div>
+                      </motion.div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
             <div>
               <label className="text-sm font-medium mb-2 block">{t('cases.description')}</label>
               <Textarea
@@ -390,66 +366,51 @@ export default function TestCaseEditor() {
               </div>
             ) : (
               <div className="space-y-2">
-                {testCase.steps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    draggable
-                    onDragStart={() => handleDragStart(step.id)}
-                    onDragOver={(e) => handleDragOver(e, step.id)}
-                    onDragEnd={handleDragEnd}
-                    className={`border rounded-lg transition-all ${
-                      draggedStep === step.id ? 'opacity-50' : ''
-                    } ${!step.enabled ? 'opacity-50' : ''}`}
-                  >
+                <AnimatePresence>
+                  {testCase.steps.map((step, index) => (
+                    <motion.div
+                      key={step.id}
+                      layout
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2 }}
+                      className={`border rounded-lg transition-all ${
+                        !step.enabled ? 'opacity-60' : ''
+                      } ${dragIndex === index ? 'ring-2 ring-blue-400 bg-blue-50' : ''}`}
+                      whileDrag={{
+                        scale: 1.02,
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                      }}
+                    >
+                      <motion.div
+                        draggable
+                        onDragStart={() => handleDragStart(step.id, index)}
+                        onDragEnd={handleDragEnd}
+                        className="flex items-center p-3 cursor-grab active:cursor-grabbing"
+                      >
                     <div className="flex items-center p-3">
-                      <GripVertical className="h-4 w-4 text-muted-foreground mr-2 cursor-move" />
-                      <Button
+                      <motion.div
+                        className="flex items-center p-3 cursor-grab active:cursor-grabbing"
+                        whileHover={{ backgroundColor: 'rgba(59, 130, 246, 0.05)' }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="flex items-center justify-center w-6 h-6 mr-2 text-muted-foreground">
+                          <Move className="h-4 w-4" />
+                        </div>
+                        <Button
                         variant="ghost"
                         size="icon"
                         className="mr-2"
                         onClick={() => toggleStepExpanded(step.id)}
                       >
-                        {expandedSteps.has(step.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <span className="text-sm font-mono text-muted-foreground mr-2">
-                        #{index + 1}
-                      </span>
-                      <Input
-                        value={step.name}
-                        onChange={(e) => updateStep(step.id, { name: e.target.value })}
-                        className="flex-1"
-                        placeholder={t('cases.stepNamePlaceholder')}
-                      />
-                      <Badge variant="outline" className="ml-2">
-                        {step.action}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleStepEnabled(step.id)}
-                        className="ml-2"
-                      >
-                        {step.enabled ? (
-                          <Eye className="h-4 w-4" />
-                        ) : (
-                          <EyeOff className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteStep(step.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {expandedSteps.has(step.id) && (
-                      <div className="px-3 pb-3 space-y-3 border-t pt-3">
+                        {expandedSteps.has(step.id) && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="px-3 pb-3 space-y-3 border-t pt-3"
                         <div>
                           <label className="text-sm font-medium mb-2 block">{t('cases.action')}</label>
                           <Select
@@ -499,148 +460,26 @@ export default function TestCaseEditor() {
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{t('cases.assertions')}</CardTitle>
-              <Dialog open={showAssertionDialog} onOpenChange={setShowAssertionDialog}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t('cases.addAssertion')}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>{t('cases.addAssertion')}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">{t('cases.type')}</label>
-                      <Select
-                        value={newAssertion.type}
-                        onValueChange={(value) =>
-                          setNewAssertion({ ...newAssertion, type: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ASSERTION_TYPES.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">{t('cases.value')}</label>
-                      <Input
-                        value={newAssertion.value}
-                        onChange={(e) =>
-                          setNewAssertion({ ...newAssertion, value: e.target.value })
-                        }
-                        placeholder={t('cases.assertionValuePlaceholder')}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">{t('cases.description')}</label>
-                      <Input
-                        value={newAssertion.description}
-                        onChange={(e) =>
-                          setNewAssertion({ ...newAssertion, description: e.target.value })
-                        }
-                        placeholder={t('cases.assertionDescriptionPlaceholder')}
-                      />
-                    </div>
-                    <Button onClick={addAssertion} className="w-full">
-                      {t('common.add')}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+            <CardTitle>{t('cases.assertions')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {testCase.assertions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {t('cases.noAssertions')}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {testCase.assertions.map((assertion) => (
-                  <div
-                    key={assertion.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <Badge variant="outline">{assertion.type}</Badge>
-                      <span className="text-sm">{assertion.description}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteAssertion(assertion.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <AssertionBuilder
+              assertions={testCase.assertions}
+              onAssertionsChange={handleAssertionsChange}
+              variables={testCase.variables}
+            />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{t('cases.variables')}</CardTitle>
-              <Button size="sm" onClick={addVariable}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('cases.addVariable')}
-              </Button>
-            </div>
+            <CardTitle>{t('cases.variables')}</CardTitle>
           </CardHeader>
           <CardContent>
-            {Object.keys(testCase.variables).length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {t('cases.noVariables')}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {Object.entries(testCase.variables).map(([key, value]) => (
-                  <div key={key} className="flex items-center space-x-2">
-                    <Input
-                      value={key}
-                      onChange={(e) => {
-                        const newVariables = { ...testCase.variables };
-                        delete newVariables[key];
-                        newVariables[e.target.value] = value;
-                        setTestCase({ ...testCase, variables: newVariables });
-                      }}
-                      className="flex-1"
-                      placeholder={t('cases.variableName')}
-                    />
-                    <span className="text-muted-foreground">=</span>
-                    <Input
-                      value={value}
-                      onChange={(e) => updateVariable(key, e.target.value)}
-                      className="flex-1"
-                      placeholder={t('cases.variableValue')}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteVariable(key)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <VariableManager
+              variables={testCase.variables}
+              onVariablesChange={handleVariablesChange}
+            />
           </CardContent>
         </Card>
       </div>

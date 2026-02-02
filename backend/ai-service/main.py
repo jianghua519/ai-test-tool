@@ -6,7 +6,11 @@ import os
 import json
 from openai import OpenAI
 import httpx
-from business-analyzer import BusinessAnalyzer
+import importlib.util
+spec = importlib.util.spec_from_file_location("business_analyzer", "business-analyzer.py")
+business_analyzer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(business_analyzer)
+BusinessAnalyzer = business_analyzer.BusinessAnalyzer
 
 app = FastAPI(title="AI Service")
 
@@ -22,13 +26,15 @@ app.add_middleware(
 # LLM配置
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 OLLAMA_BASE_URL = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+ZAI_API_KEY = os.getenv('ZAI_API_KEY')
+ZAI_BASE_URL = os.getenv('ZAI_BASE_URL', 'https://open.bigmodel.cn/api/paas/v4/')
 
 # Pydantic模型
 class GenerateCaseRequest(BaseModel):
     url: str
     actions: List[Dict[str, Any]]
-    model: Optional[str] = "gpt-4.1-mini"
-    provider: Optional[str] = "openai"  # openai or ollama
+    model: Optional[str] = "glm-4.5-air"
+    provider: Optional[str] = "zai"  # openai, ollama, or zai
 
 class AnalyzeErrorRequest(BaseModel):
     error_message: str
@@ -37,14 +43,14 @@ class AnalyzeErrorRequest(BaseModel):
     screenshot_context: Optional[str] = None
     dom_context: Optional[str] = None
     console_logs: Optional[List[str]] = None
-    model: Optional[str] = "gpt-4.1-mini"
-    provider: Optional[str] = "openai"
+    model: Optional[str] = "glm-4.5-air"
+    provider: Optional[str] = "zai"
 
 class AnalyzeBusinessRequest(BaseModel):
     url: str
     description: str
-    model: Optional[str] = "gpt-4.1-mini"
-    provider: Optional[str] = "openai"
+    model: Optional[str] = "glm-4.5-air"
+    provider: Optional[str] = "zai"
 
 # LLM网关
 class LLMGateway:
@@ -54,6 +60,8 @@ class LLMGateway:
             return await LLMGateway._generate_openai(prompt, model)
         elif provider == "ollama":
             return await LLMGateway._generate_ollama(prompt, model)
+        elif provider == "zai":
+            return await LLMGateway._generate_zai(prompt, model)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
     
@@ -95,6 +103,35 @@ class LLMGateway:
                 return result.get('response', '{}')
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Ollama API error: {str(e)}")
+    
+    @staticmethod
+    async def _generate_zai(prompt: str, model: str) -> str:
+        if not ZAI_API_KEY:
+            raise HTTPException(status_code=500, detail="ZAI API key not configured")
+        
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                response = await client.post(
+                    f"{ZAI_BASE_URL}chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {ZAI_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": "你是一个专业的自动化测试专家，擅长分析网页操作并生成测试用例。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.7,
+                        "response_format": {"type": "json_object"}
+                    }
+                )
+                response.raise_for_status()
+                result = response.json()
+                return result.get('choices', [{}])[0].get('message', {}).get('content', '{}')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"ZAI API error: {str(e)}")
 
 # 健康检查
 @app.get("/health")
@@ -313,7 +350,7 @@ async def analyze_error(request: AnalyzeErrorRequest):
 
 # 测试LLM连接
 @app.get("/api/ai/test-connection")
-async def test_connection(provider: str = "openai", model: str = "gpt-4.1-mini"):
+async def test_connection(provider: str = "zai", model: str = "glm-4.5-air"):
     try:
         response = await LLMGateway.generate(
             "请回复'连接成功'，返回JSON格式: {\"message\": \"连接成功\"}",

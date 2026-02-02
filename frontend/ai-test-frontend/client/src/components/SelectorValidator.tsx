@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, X, Loader2, Eye, RefreshCw } from 'lucide-react';
+import { Check, X, Loader2, Eye, RefreshCw, AlertTriangle, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,8 @@ interface SelectorValidationResult {
   selector: string;
   suggestedSelectors?: string[];
   error?: string;
+  warnings?: string[];
+  hints?: string[];
 }
 
 interface SelectorValidatorProps {
@@ -31,7 +34,10 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
   const [result, setResult] = useState<SelectorValidationResult | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [lastValidationTime, setLastValidationTime] = useState<number>(0);
   const validationTimeoutRef = useRef<NodeJS.Timeout>();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     checkExtensionConnection();
@@ -66,8 +72,49 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
     }
   };
 
+  const generateValidationHints = (selectorValue: string, elementCount: number) => {
+    const hints: string[] = [];
+    const warnings: string[] = [];
+
+    if (!selectorValue.trim()) {
+      hints.push('Start typing a CSS selector or XPath');
+      return { hints, warnings };
+    }
+
+    if (selectorValue.includes(':contains(')) {
+      warnings.push(':contains() is not standard CSS and may not work in all browsers');
+    }
+
+    if (selectorValue.includes('//') && !selectorValue.startsWith('//')) {
+      warnings.push('XPath should start with // or /');
+    }
+
+    if (selectorValue.startsWith('#') && elementCount > 1) {
+      warnings.push('ID selectors should be unique. Consider using a more specific selector.');
+    }
+
+    if (selectorValue.includes('.class') && elementCount > 10) {
+      warnings.push('Many elements found with this class. Consider adding more context.');
+    }
+
+    if (!selectorValue.includes('#') && !selectorValue.includes('.') && !selectorValue.startsWith('//') && !selectorValue.includes('[')) {
+      hints.push('Consider using ID (#id), class (.class), or attributes [attr=value] for more specific selectors');
+    }
+
+    if (selectorValue.includes('nth-child(')) {
+      hints.push('nth-child() can be brittle. Consider using more stable selectors like IDs or data attributes');
+    }
+
+    if (elementCount === 0) {
+      hints.push('No elements found. Check the selector or try the browser console to debug');
+    }
+
+    return { hints, warnings };
+  };
+
   const validateSelector = async (selectorValue: string) => {
     setValidating(true);
+    setLastValidationTime(Date.now());
     try {
       const response = await chrome.runtime.sendMessage({
         type: 'VALIDATE_SELECTOR',
@@ -76,12 +123,16 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
       });
 
       if (response?.success) {
+        const { hints, warnings } = generateValidationHints(selectorValue, response.elementCount || 0);
+        
         setResult({
           valid: response.valid,
           elementCount: response.elementCount || 0,
           selector: selectorValue,
           suggestedSelectors: response.suggestedSelectors || [],
-          error: response.error
+          error: response.error,
+          warnings: warnings.length > 0 ? warnings : undefined,
+          hints: hints.length > 0 ? hints : undefined
         });
       } else {
         setResult({
@@ -138,14 +189,29 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
     }
 
     if (!result) {
-      return null;
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          <Info className="mr-1 h-3 w-3" />
+          {t('cases.startTyping')}
+        </Badge>
+      );
     }
 
     if (result.valid) {
       return (
-        <Badge variant="outline" className="text-chart-3 border-chart-3">
+        <Badge 
+          variant="outline" 
+          className={`${
+            result.elementCount === 1 
+              ? 'text-chart-3 border-chart-3' 
+              : 'text-chart-4 border-chart-4'
+          }`}
+        >
           <Check className="mr-1 h-3 w-3" />
           {result.elementCount} {t('cases.elementsFound')}
+          {result.elementCount > 1 && (
+            <AlertTriangle className="ml-1 h-3 w-3" />
+          )}
         </Badge>
       );
     }
@@ -158,15 +224,54 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
     );
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    onChange(value);
+    
+    // Auto-validate after user stops typing for 500ms
+    if (validationTimeoutRef.current) {
+      clearTimeout(validationTimeoutRef.current);
+    }
+    
+    validationTimeoutRef.current = setTimeout(() => {
+      if (value.trim()) {
+        validateSelector(value);
+      }
+    }, 500);
+  };
+
+  const toggleSuggestions = () => {
+    setShowSuggestions(!showSuggestions);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2">
-        <Input
-          value={selector}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={t('cases.selectorPlaceholder')}
-          className="flex-1 font-mono text-sm"
-        />
+        <div className="relative flex-1">
+          <Input
+            ref={inputRef}
+            value={selector}
+            onChange={handleInputChange}
+            onFocus={() => selector && validateSelector(selector)}
+            placeholder={t('cases.selectorPlaceholder')}
+            className={`flex-1 font-mono text-sm ${
+              result?.valid 
+                ? 'border-chart-3 focus:border-chart-3' 
+                : result?.valid === false 
+                ? 'border-destructive focus:border-destructive'
+                : ''
+            }`}
+          />
+          {selector && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              {result?.valid ? (
+                <Check className="h-4 w-4 text-chart-3" />
+              ) : (
+                <X className="h-4 w-4 text-destructive" />
+              )}
+            </div>
+          )}
+        </div>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -204,43 +309,131 @@ export default function SelectorValidator({ selector, onChange, url }: SelectorV
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap gap-2">
           {getStatusBadge()}
           {!connected && (
             <Badge variant="outline" className="text-muted-foreground">
               {t('cases.extensionNotConnected')}
             </Badge>
           )}
+          {result?.warnings && result.warnings.length > 0 && (
+            <Badge variant="outline" className="text-amber-600 border-amber-600">
+              <AlertTriangle className="mr-1 h-3 w-3" />
+              {result.warnings.length} {t('cases.warnings')}
+            </Badge>
+          )}
         </div>
-        {result?.valid && result.elementCount > 1 && (
-          <Badge variant="outline" className="text-chart-4 border-chart-4">
-            {t('cases.multipleElementsWarning')}
-          </Badge>
+        {result?.suggestedSelectors && result.suggestedSelectors.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSuggestions}
+            className="text-xs"
+          >
+            {showSuggestions ? 'Hide' : 'Show'} suggestions
+          </Button>
         )}
       </div>
 
-      {result?.suggestedSelectors && result.suggestedSelectors.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">
-            {t('cases.suggestedSelectors')}
-          </p>
-          <div className="space-y-1">
+      <AnimatePresence>
+        {result?.hints && result.hints.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3 bg-blue-50 border border-blue-200 rounded-lg"
+          >
+            <div className="flex items-start space-x-2">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-blue-800">
+                  {t('cases.tips')}
+                </p>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  {result.hints.map((hint, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2">•</span>
+                      {hint}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {result?.warnings && result.warnings.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3 bg-amber-50 border border-amber-200 rounded-lg"
+          >
+            <div className="flex items-start space-x-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-amber-800">
+                  {t('cases.important')}
+                </p>
+                <ul className="text-xs text-amber-700 space-y-1">
+                  {result.warnings.map((warning, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2">•</span>
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {showSuggestions && result?.suggestedSelectors && result.suggestedSelectors.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-2"
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">
+              {t('cases.suggestedSelectors')}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSuggestions}
+              className="text-xs"
+            >
+              Hide
+            </Button>
+          </div>
+          <div className="space-y-1 border border-dashed border-muted-foreground/30 rounded-lg p-2">
             {result.suggestedSelectors.map((suggested, index) => (
-              <div
+              <motion.div
                 key={index}
-                className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted transition-colors cursor-pointer"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="flex items-center justify-between p-2 bg-muted/50 rounded hover:bg-muted transition-colors cursor-pointer group"
                 onClick={() => useSuggestedSelector(suggested)}
               >
-                <code className="text-xs font-mono flex-1 truncate">
+                <code className="text-xs font-mono flex-1 truncate group-hover:text-blue-600 transition-colors">
                   {suggested}
                 </code>
-                <Button variant="ghost" size="sm" className="ml-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
                   {t('common.use')}
                 </Button>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {highlighting && (

@@ -80,7 +80,7 @@ class CaseDeduplicator:
         signatures: List[CaseSignature]
     ) -> List[List[Dict[str, Any]]]:
         """按相似性分组用例"""
-        groups: List[List[Dict[str, Any]]] []
+        groups: List[List[Dict[str, Any]]] = []
         seen_signatures: Set[str] = set()
 
         for case, sig in zip(cases, signatures):
